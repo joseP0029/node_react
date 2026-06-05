@@ -1,110 +1,103 @@
-import { useEffect } from 'react';
-import { useState } from 'react'
+import { useEffect, useState } from "react";
 
-// Componente principal de la aplicación
 function App() {
-  // Estado para guardar el mensaje que viene del backend
-  const [mensaje, setMensaje] = useState("");
+  const [pokemon, setPokemon] = useState(null);
+  const [guess, setGuess] = useState("");
+  const [result, setResult] = useState(null);
 
-  // Estado del juego (Adivina el Número)
-  const [mensajeJuego, setMensajeJuego] = useState("Haz clic en Reiniciar para comenzar");
-  const [numero, setNumero] = useState("");
+  const getRandomPokemon = async () => {
+    const randomId = Math.floor(Math.random() * 1025) + 1;
 
-  // Hook que se ejecuta una sola vez al cargar el componente
-  useEffect(() => {
-    // Hace una petición GET al backend
-    fetch("/api/mensaje").then(res => res.json()).then(data => setMensaje(data.texto));
-  }, []);
-  
-  // Función para reiniciar el juego (Adivina el Número)
-  const reiniciarJuego = async () => {
-    const res = await fetch("/api/start");
-    const data = await res.json();
+    const pokemonRes = await fetch(
+      `https://pokeapi.co/api/v2/pokemon/${randomId}`
+    );
 
-    // Console.log("Número secreto (solo consola frontend):", data.numeroSecreto);
-    setMensajeJuego(data.mensaje);
-    setNumero("");
-  };
+    const pokemonData = await pokemonRes.json();
 
-  // Función para enviar intento (Adivina el Número)
-  const enviarIntento = async () => {
-    const res = await fetch("/api/guess", {
-      method: "POST",
-      headers: { "Content-Type": "application/json"},
-      body: JSON.stringify({ numero: Number(numero)})
+    const speciesRes = await fetch(
+      `https://pokeapi.co/api/v2/pokemon-species/${randomId}`
+    );
+
+    const speciesData = await speciesRes.json();
+
+    setPokemon({
+      id: pokemonData.id,
+      name: pokemonData.name,
+      types: pokemonData.types.map(
+        (t) => t.type.name
+      ),
+      height: pokemonData.height,
+      weight: pokemonData.weight,
+      color: speciesData.color.name,
+      moves: pokemonData.moves
+        .slice(0, 5)
+        .map((m) => m.move.name),
+      image:
+        pokemonData.sprites.other.dream_world
+          .front_default ||
+        pokemonData.sprites.front_default,
     });
-    const data = await res.json();
-    setMensajeJuego(data.mensaje);
+
+    setGuess("");
+    setResult(null);
   };
 
-  // Renderiza el contenido en pantalla
-  return (
-    <div style={{ fontFamily: "Arial, sans-serif", padding: "20px", textAlign: "center"}}>
-      {/* ------------------- SECCIÓN ADIVINA EL NÚMERO ------------------- */}
-      {/* Mensaje backend */}
-      <h1 style={{color: "#2d3436"}}>Frontend conectado</h1>
-      <p style={{ fontSize: "1.2rem", color: "#0984e3"}}>{mensaje}</p>
-      <hr style={{ margin: "20px 0"}} />
-      {/* Sección de juego */}
-      <h1>🎲 Juego: Adivina el Número</h1>
-      <p style={{ fontSize: "1.2rem", color: "#d63031"}}>{mensajeJuego}</p>
-      
-      {/* Input y botones con estilo */}
-      <input
-        type="number"
-        value={numero}
-        onChange={(e) => setNumero(e.target.value)}
-        placeholder='Escribe un número'
-        style={{
-          padding: "10px 15px",
-          fontSize: "1rem",
-          borderRadius: "8px",
-          border: "2px solid #0984e3",
-          width: "150px",
-          textAlign: "center",
-          marginBottom: "15px"
-        }}
-      />
-      <br/>
+  useEffect(() => {
+    getRandomPokemon();
+  }, []);
 
-      <button
-        onClick={enviarIntento}
-        style={{
-          padding: "10px 20px",
-          marginRight: "10px",
-          fontSize: "1rem",
-          borderRadius: "8px",
-          border: "none",
-          backgroundColor: "#00b894",
-          color: "#fff",
-          cursor: "pointer",
-          transition: "background-color 0.3s"
-        }}
-        onMouseOver={e => e.target.style.backgroundColor = "#019875"}
-        onMouseOut={e => e.target.style.backgroundColor = "#00b894"}
-        >
-        Intentar
+  const checkAnswer = () => {
+    setResult(
+      guess.toLowerCase().trim() ===
+      pokemon.name.toLowerCase()
+    );
+  };
+
+  if (!pokemon) return <h2>Cargando...</h2>;
+
+  return (
+    <div>
+      <h1>Adivina el Pokémon</h1>
+
+      <p>ID: {pokemon.id}</p>
+      <p>Tipo: {pokemon.types.join(", ")}</p>
+      <p>Color: {pokemon.color}</p>
+      <p>Altura: {pokemon.height}</p>
+      <p>Peso: {pokemon.weight}</p>
+      <p>Ataques: {pokemon.moves.join(", ")}</p>
+
+      <input
+        value={guess}
+        onChange={(e) =>
+          setGuess(e.target.value)
+        }
+      />
+
+      <button onClick={checkAnswer}>
+        Adivinar
       </button>
 
-      <button
-        onClick={reiniciarJuego}
-        style={{
-          padding: "10px 20px",
-          fontSize: "1rem",
-          borderRadius: "8px",
-          border: "none",
-          backgroundColor: "#0984e3",
-          color: "#fff",
-          cursor: "pointer",
-          transition: "background-color 0.3s"
-        }}
-        onMouseOver={e => e.target.style.backgroundColor = "#0652dd"}
-        onMouseOut={e => e.target.style.backgroundColor = "#0984e3"}
-        >
-        Reiniciar Juego
+      {result !== null && (
+        <>
+          <h2>
+            {result
+              ? `¡Correcto! Es ${pokemon.name}`
+              : `Incorrecto. Era ${pokemon.name}`}
+          </h2>
+
+          <img
+            src={pokemon.image}
+            alt={pokemon.name}
+            width="250"
+          />
+        </>
+      )}
+
+      <button onClick={getRandomPokemon}>
+        Nuevo Pokémon
       </button>
     </div>
-  )
+  );
 }
 
-export default App
+export default App;
